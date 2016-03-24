@@ -29,7 +29,7 @@
 #include "enc28j60.h"
 #include "enc28j60_regs.h"
 
-#if CPUID_ID_LEN
+#if CPUID_LEN
 #include "periph/cpuid.h"
 #endif
 
@@ -215,7 +215,7 @@ static void mac_set(enc28j60_t *dev, uint8_t *mac)
 static void on_int(void *arg)
 {
     netdev2_t *netdev = (netdev2_t *)arg;
-    netdev->event_callback(arg, NETDEV2_EVENT_ISR, NULL);
+    netdev->event_callback(arg, NETDEV2_EVENT_ISR, netdev->isr_arg);
 }
 
 static int nd_send(netdev2_t *netdev, const struct iovec *data, int count)
@@ -243,13 +243,14 @@ static int nd_send(netdev2_t *netdev, const struct iovec *data, int count)
     return c;
 }
 
-static int nd_recv(netdev2_t *netdev, char *buf, int max_len)
+static int nd_recv(netdev2_t *netdev, char *buf, int max_len, void *info)
 {
     enc28j60_t *dev = (enc28j60_t *)netdev;
     uint8_t head[6];
     size_t size;
     uint16_t next;
 
+    (void)info;
     mutex_lock(&dev->devlock);
 
     /* set read pointer to RX read address */
@@ -287,11 +288,11 @@ static int nd_init(netdev2_t *netdev)
     mutex_lock(&dev->devlock);
 
     /* setup the low-level interfaces */
-    gpio_init(dev->reset_pin, GPIO_DIR_OUT, GPIO_NOPULL);
+    gpio_init(dev->reset_pin, GPIO_OUT);
     gpio_clear(dev->reset_pin);     /* this puts the device into reset state */
-    gpio_init(dev->cs_pin, GPIO_DIR_OUT, GPIO_NOPULL);
+    gpio_init(dev->cs_pin, GPIO_OUT);
     gpio_set(dev->cs_pin);
-    gpio_init_int(dev->int_pin, GPIO_NOPULL, GPIO_FALLING, on_int, (void *)dev);
+    gpio_init_int(dev->int_pin, GPIO_IN, GPIO_FALLING, on_int, (void *)dev);
     res = spi_init_master(dev->spi, SPI_CONF_FIRST_RISING, SPI_SPEED);
     if (res < 0) {
         DEBUG("[enc28j60] init: error initializing SPI bus [%i]\n", res);
@@ -344,8 +345,8 @@ static int nd_init(netdev2_t *netdev)
     /* set non-back-to-back inter packet gap -> 0x12 is default */
     cmd_wcr(dev, REG_B2_MAIPGL, 2, MAIPGL_FD);
     /* set default MAC address */
-#if CPUID_ID_LEN
-    uint8_t macbuf[CPUID_ID_LEN];
+#if CPUID_LEN
+    uint8_t macbuf[CPUID_LEN];
     cpuid_get(&macbuf);     /* we get the full ID but use only parts of it */
     macbuf[0] |= 0x02;      /* locally administered address */
     macbuf[0] &= ~0x01;     /* unicast address */

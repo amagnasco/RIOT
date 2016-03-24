@@ -52,7 +52,7 @@ enum {
     NETDEV2_TYPE_UNKNOWN,
     NETDEV2_TYPE_RAW,
     NETDEV2_TYPE_ETHERNET,
-    NETDEV2_TYPE_802154,
+    NETDEV2_TYPE_IEEE802154,
     NETDEV2_TYPE_CC110X,
 };
 
@@ -61,15 +61,27 @@ enum {
  *          upper layer
  */
 typedef enum {
-    NETDEV2_EVENT_ISR,           /**< driver needs it's ISR handled */
-    NETDEV2_EVENT_RX_STARTED,    /**< started to receive a packet */
-    NETDEV2_EVENT_RX_COMPLETE,   /**< finished receiving a packet */
-    NETDEV2_EVENT_TX_STARTED,    /**< started to transfer a packet */
-    NETDEV2_EVENT_TX_COMPLETE,   /**< finished transferring packet */
-    NETDEV2_EVENT_LINK_UP,       /**< link established */
-    NETDEV2_EVENT_LINK_DOWN,     /**< link gone */
+    NETDEV2_EVENT_ISR,              /**< driver needs it's ISR handled */
+    NETDEV2_EVENT_RX_STARTED,       /**< started to receive a packet */
+    NETDEV2_EVENT_RX_COMPLETE,      /**< finished receiving a packet */
+    NETDEV2_EVENT_TX_STARTED,       /**< started to transfer a packet */
+    NETDEV2_EVENT_TX_COMPLETE,      /**< finished transferring packet */
+    NETDEV2_EVENT_TX_NOACK,         /**< ACK requested but not received */
+    NETDEV2_EVENT_TX_MEDIUM_BUSY,   /**< couldn't transfer packet */
+    NETDEV2_EVENT_LINK_UP,          /**< link established */
+    NETDEV2_EVENT_LINK_DOWN,        /**< link gone */
     /* expand this list if needed */
 } netdev2_event_t;
+
+/**
+ * @brief   Received packet status information for most radios
+ *
+ * May be different for certain radios.
+ */
+struct netdev2_radio_rx_info {
+    uint8_t rssi;       /**< RSSI of a received packet */
+    uint8_t lqi;        /**< LQI of a received packet */
+};
 
 /**
  * @brief   Forward declaration for netdev2 struct
@@ -82,7 +94,7 @@ typedef struct netdev2 netdev2_t;
  * @param[in] type          type of the event
  * @param[in] arg           event argument
  */
-typedef void (*netdev2_event_cb_t)(netdev2_t *dev, netdev2_event_t event, void* arg);
+typedef void (*netdev2_event_cb_t)(netdev2_t *dev, netdev2_event_t event, void *arg);
 
 /**
  * @brief Structure to hold driver state
@@ -93,7 +105,7 @@ typedef void (*netdev2_event_cb_t)(netdev2_t *dev, netdev2_event_t event, void* 
 struct netdev2 {
     const struct netdev2_driver *driver;    /**< ptr to that driver's interface. */
     netdev2_event_cb_t event_callback;      /**< callback for device events */
-    void* isr_arg;                          /**< argument to pass on isr event */
+    void *isr_arg;                          /**< argument to pass on isr event */
 };
 
 /**
@@ -122,12 +134,15 @@ typedef struct netdev2_driver {
      * @param[in]   dev     network device descriptor
      * @param[out]  buf     buffer to write into or NULL
      * @param[in]   len     maximum nr. of bytes to read
+     * @param[out] info     status information for the received packet. Might
+     *                      be of different type for different netdev2 devices.
+     *                      May be NULL if not needed or applicable.
      *
      * @return <=0 on error
      * @return nr of bytes read if buf != NULL
      * @return packet size if buf == NULL
      */
-    int (*recv)(netdev2_t *dev, char* buf, int len);
+    int (*recv)(netdev2_t *dev, char *buf, int len, void *info);
 
     /**
      * @brief the driver's initialization function

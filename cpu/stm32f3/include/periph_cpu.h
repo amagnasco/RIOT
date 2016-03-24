@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Freie Universität Berlin
+ * Copyright (C) 2015-2016 Freie Universität Berlin
  *
  * This file is subject to the terms and conditions of the GNU Lesser
  * General Public License v2.1. See the file LICENSE in the top level
@@ -16,11 +16,10 @@
  * @author          Hauke Petersen <hauke.peterse@fu-berlin.de>
  */
 
-#ifndef PERIPH_CPU_H_
-#define PERIPH_CPU_H_
+#ifndef PERIPH_CPU_H
+#define PERIPH_CPU_H
 
-#include "cpu.h"
-#include "periph/dev_enums.h"
+#include "periph_cpu_common.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,6 +42,31 @@ typedef uint32_t gpio_t;
  * @brief   Define a CPU specific GPIO pin generator macro
  */
 #define GPIO_PIN(x, y)      ((GPIOA_BASE + (x << 10)) | y)
+
+/**
+ * @brief   Generate GPIO mode bitfields
+ *
+ * We use 5 bit to encode the mode:
+ * - bit 0+1: pin mode (input / output)
+ * - bit 2+3: pull resistor configuration
+ * - bit   4: output type (0: push-pull, 1: open-drain)
+ */
+#define GPIO_MODE(io, pr, ot)   ((io << 0) | (pr << 2) | (ot << 4))
+
+/**
+ * @brief   Override GPIO mode options
+ * @{
+ */
+#define HAVE_GPIO_MODE_T
+typedef enum {
+    GPIO_IN    = GPIO_MODE(0, 0, 0),    /**< input w/o pull R */
+    GPIO_IN_PD = GPIO_MODE(0, 2, 0),    /**< input with pull-down */
+    GPIO_IN_PU = GPIO_MODE(0, 1, 0),    /**< input with pull-up */
+    GPIO_OUT   = GPIO_MODE(1, 0, 0),    /**< push-pull output */
+    GPIO_OD    = GPIO_MODE(1, 0, 1),    /**< open-drain w/o pull R */
+    GPIO_OD_PU = GPIO_MODE(1, 1, 1)     /**< open-drain with pull-up */
+} gpio_mode_t;
+/** @} */
 
 /**
  * @brief   Available ports on the STM32F3 family
@@ -78,15 +102,6 @@ typedef enum {
     GPIO_AF14,              /**< use alternate function 14 */
     GPIO_AF15               /**< use alternate function 14 */
 } gpio_af_t;
-
-/**
- * @brief declare needed generic SPI functions
- * @{
- */
-#define PERIPH_SPI_NEEDS_TRANSFER_BYTES
-#define PERIPH_SPI_NEEDS_TRANSFER_REG
-#define PERIPH_SPI_NEEDS_TRANSFER_REGS
-/** @} */
 
 #ifdef __cplusplus
 }

@@ -493,4 +493,37 @@ static void _pktbuf_free(void *data, size_t size)
     }
 }
 
+
+gnrc_pktsnip_t *gnrc_pktbuf_remove_snip(gnrc_pktsnip_t *pkt, gnrc_pktsnip_t *snip)
+{
+    LL_DELETE(pkt, snip);
+    snip->next = NULL;
+    gnrc_pktbuf_release(snip);
+
+    return pkt;
+}
+
+gnrc_pktsnip_t *gnrc_pktbuf_replace_snip(gnrc_pktsnip_t *pkt, gnrc_pktsnip_t *old, gnrc_pktsnip_t *add)
+{
+    /* If add is a list we need to preserve its tail */
+    if (add->next != NULL) {
+        gnrc_pktsnip_t *tail = add->next;
+        gnrc_pktsnip_t *back;
+        LL_SEARCH_SCALAR(tail, back, next, NULL); /* find the last snip in add */
+        /* Replace old */
+        LL_REPLACE_ELEM(pkt, old, add);
+        /* and wire in the tail between */
+        back->next = add->next;
+        add->next = tail;
+    }
+    else {
+        /* add is a single element, has no tail, simply replace */
+        LL_REPLACE_ELEM(pkt, old, add);
+    }
+    old->next = NULL;
+    gnrc_pktbuf_release(old);
+
+    return pkt;
+}
+
 /** @} */

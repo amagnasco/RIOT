@@ -1,1 +1,1 @@
-INCLUDES += -I$(RIOTBASE)/pkg/relic/relic/include
+INCLUDES += -I$(BINDIR)/pkg/relic/include

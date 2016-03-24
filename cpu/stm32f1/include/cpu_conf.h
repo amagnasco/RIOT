@@ -23,6 +23,8 @@
 #ifndef CPU_CONF_H
 #define CPU_CONF_H
 
+#include "cpu_conf_common.h"
+
 #if defined(CPU_MODEL_STM32F103CB) || defined(CPU_MODEL_STM32F103RB)
 #include "stm32f103xb.h"
 #elif defined(CPU_MODEL_STM32F103RE)
@@ -41,11 +43,6 @@ extern "C" {
 #define CPU_IRQ_NUMOF                   (60U)
 #define CPU_FLASH_BASE                  FLASH_BASE
 /** @} */
-
-/**
- * @brief Length for reading CPU_ID
- */
-#define CPUID_ID_LEN                    (12)
 
 /**
  * @brief Configure the CPU's clock system

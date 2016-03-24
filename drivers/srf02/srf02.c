@@ -28,13 +28,8 @@
 #include "srf02.h"
 #include "periph/i2c.h"
 
-#define ENABLE_DEBUG (0)
+#define ENABLE_DEBUG        (0)
 #include "debug.h"
-
-/**
- * @brief   The datasheet tells us, that ranging takes 70ms
- */
-#define RANGE_DELAY         (70000U)
 
 /**
  * @brief   Per default use normal speed on the I2C bus
@@ -52,10 +47,20 @@
 #define REG_AUTO_LOW        (0x05)
 /** @} */
 
+/**
+ * @brief   Some additional SRF02 commands
+ * @{
+ */
+#define CMD_ADDR_SEQ1       (0xa0)
+#define CMD_ADDR_SEQ2       (0xaa)
+#define CMD_ADDR_SEQ3       (0xa5)
+/** @} */
+
+
 int srf02_init(srf02_t *dev, i2c_t i2c, uint8_t addr)
 {
     dev->i2c = i2c;
-    dev->addr = addr;
+    dev->addr = (addr >> 1);    /* internally we right align the 7-bit addr */
     char rev;
 
     /* Acquire exclusive access to the bus. */
@@ -66,8 +71,9 @@ int srf02_init(srf02_t *dev, i2c_t i2c, uint8_t addr)
         return -1;
     }
     /* try to read the software revision (read the CMD reg) from the device */
-    i2c_read_reg(i2c, addr, REG_CMD, &rev);
+    i2c_read_reg(i2c, dev->addr, REG_CMD, &rev);
     if (rev == 0 || rev == 255) {
+        i2c_release(dev->i2c);
         DEBUG("[srf02] error reading the devices software revision\n");
         return -1;
     } else {
@@ -80,18 +86,18 @@ int srf02_init(srf02_t *dev, i2c_t i2c, uint8_t addr)
     return 0;
 }
 
-uint16_t srf02_get_distance(srf02_t *dev, srf02_mode_t mode)
+void srf02_trigger(srf02_t *dev, srf02_mode_t mode)
 {
-    char res[2];
-
     /* trigger a new measurement by writing the mode to the CMD register */
     DEBUG("[srf02] trigger new reading\n");
     i2c_acquire(dev->i2c);
     i2c_write_reg(dev->i2c, dev->addr, REG_CMD, mode);
     i2c_release(dev->i2c);
+}
 
-    /* give the sensor the required time for sampling */
-    xtimer_usleep(RANGE_DELAY);
+uint16_t srf02_read(srf02_t *dev)
+{
+    char res[2];
 
     /* read the results */
     i2c_acquire(dev->i2c);
@@ -101,4 +107,32 @@ uint16_t srf02_get_distance(srf02_t *dev, srf02_mode_t mode)
 
     /* compile result - TODO: fix for different host byte order other than LE */
     return ((((uint16_t)res[0]) << 8) | (res[1] & 0xff));
+}
+
+uint16_t srf02_get_distance(srf02_t *dev, srf02_mode_t mode)
+{
+    /* trigger a new reading */
+    srf02_trigger(dev, mode);
+    /* give the sensor the required time for sampling */
+    xtimer_usleep(SRF02_RANGE_DELAY);
+    /* get the results */
+    return srf02_read(dev);
+}
+
+void srf02_set_addr(srf02_t *dev, uint8_t new_addr)
+{
+    /* get access to the bus */
+    i2c_acquire(dev->i2c);
+
+    DEBUG("[srf02] reprogramming device address to 0x%02x\n", (int)new_addr);
+
+    /* write the new address, for this we need to follow a certain sequence */
+    i2c_write_reg(dev->i2c, dev->addr, REG_CMD, CMD_ADDR_SEQ1);
+    i2c_write_reg(dev->i2c, dev->addr, REG_CMD, CMD_ADDR_SEQ2);
+    i2c_write_reg(dev->i2c, dev->addr, REG_CMD, CMD_ADDR_SEQ3);
+    i2c_write_reg(dev->i2c, dev->addr, REG_CMD, new_addr);
+    dev->addr = (new_addr >> 1);
+
+    /* release the bus */
+    i2c_release(dev->i2c);
 }

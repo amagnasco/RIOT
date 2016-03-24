@@ -4,7 +4,7 @@ export CPU_MODEL = stm32f103re
 
 # define the default port depending on the host OS
 PORT_LINUX ?= /dev/ttyUSB1
-PORT_DARWIN ?= $(shell ls -1 /dev/tty.usbserial* | head -n 1)
+PORT_DARWIN ?= $(firstword $(sort $(wildcard /dev/tty.usbserial*)))
 
 # setup serial terminal
 export BAUD = 500000
@@ -15,6 +15,3 @@ include $(RIOTBOARD)/Makefile.include.openocd
 
 # include board dependencies
 include $(RIOTBOARD)/$(BOARD)/Makefile.dep
-
-# include cortex defaults
-include $(RIOTBOARD)/Makefile.include.cortexm_common

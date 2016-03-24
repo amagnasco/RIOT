@@ -20,6 +20,7 @@
 #ifndef CPU_CONF_H
 #define CPU_CONF_H
 
+#include "cpu_conf_common.h"
 #include "nrf52.h"
 #include "nrf52_bitfields.h"
 
@@ -35,11 +36,6 @@ extern "C" {
 #define CPU_IRQ_NUMOF                   (38)
 #define CPU_FLASH_BASE                  (0x00000000)
 /** @} */
-
-/**
- * @brief   CPU_ID length in octets
- */
-#define CPUID_ID_LEN                    (8)
 
 #ifdef __cplusplus
 }

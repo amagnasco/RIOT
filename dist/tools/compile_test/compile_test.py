@@ -49,6 +49,7 @@ def is_tracked(application_folder):
         return True
 
 def get_results_and_output_from(fd):
+    read_more_output = True
     results_prefix = 'Building for '
     output_prefix = 'Building application '
     prev_results = False
@@ -118,7 +119,8 @@ def is_updated(application_folder, subprocess_env):
             return True
 
         if '.travis.yml' in diff_files or \
-           any('dist/' in s for s in diff_files):
+           any('dist/' in s for s in diff_files) or \
+           any('pkg/' in s for s in diff_files):
             return True
 
         boards_changes = set()

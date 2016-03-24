@@ -27,6 +27,7 @@
 
 static char _stack[GNRC_RPL_STACK_SIZE];
 kernel_pid_t gnrc_rpl_pid = KERNEL_PID_UNDEF;
+const ipv6_addr_t ipv6_addr_all_rpl_nodes = GNRC_RPL_ALL_NODES_ADDR;
 static uint32_t _lt_time = GNRC_RPL_LIFETIME_UPDATE_STEP * SEC_IN_USEC;
 static xtimer_t _lt_timer;
 static msg_t _lt_msg = { .type = GNRC_RPL_MSG_TYPE_LIFETIME_UPDATE };
@@ -68,10 +69,9 @@ kernel_pid_t gnrc_rpl_init(kernel_pid_t if_pid)
     }
 
     /* register all_RPL_nodes multicast address */
-    ipv6_addr_t all_RPL_nodes = GNRC_RPL_ALL_NODES_ADDR;
-    gnrc_ipv6_netif_add_addr(if_pid, &all_RPL_nodes, IPV6_ADDR_BIT_LEN, 0);
+    gnrc_ipv6_netif_add_addr(if_pid, &ipv6_addr_all_rpl_nodes, IPV6_ADDR_BIT_LEN, 0);
 
-    gnrc_rpl_send_DIS(NULL, &all_RPL_nodes);
+    gnrc_rpl_send_DIS(NULL, (ipv6_addr_t *) &ipv6_addr_all_rpl_nodes);
     return gnrc_rpl_pid;
 }
 
@@ -84,7 +84,7 @@ gnrc_rpl_instance_t *gnrc_rpl_root_init(uint8_t instance_id, ipv6_addr_t *dodag_
 
     gnrc_rpl_dodag_t *dodag = NULL;
     gnrc_rpl_instance_t *inst = gnrc_rpl_root_instance_init(instance_id, dodag_id,
-                                                         GNRC_RPL_DEFAULT_MOP);
+                                                            GNRC_RPL_DEFAULT_MOP);
 
     if (!inst) {
         return NULL;
@@ -103,8 +103,10 @@ gnrc_rpl_instance_t *gnrc_rpl_root_init(uint8_t instance_id, ipv6_addr_t *dodag_
     dodag->grounded = GNRC_RPL_GROUNDED;
     dodag->node_status = GNRC_RPL_ROOT_NODE;
     dodag->my_rank = GNRC_RPL_ROOT_RANK;
-    dodag->dodag_conf_requested = true;
-    dodag->prefix_info_requested = true;
+    dodag->dio_opts |= GNRC_RPL_REQ_DIO_OPT_DODAG_CONF;
+#ifndef GNRC_RPL_WITHOUT_PIO
+    dodag->dio_opts |= GNRC_RPL_REQ_DIO_OPT_PREFIX_INFO;
+#endif
 
     trickle_start(gnrc_rpl_pid, &dodag->trickle, GNRC_RPL_MSG_TYPE_TRICKLE_INTERVAL,
                   GNRC_RPL_MSG_TYPE_TRICKLE_CALLBACK, (1 << dodag->dio_min),
@@ -115,13 +117,21 @@ gnrc_rpl_instance_t *gnrc_rpl_root_init(uint8_t instance_id, ipv6_addr_t *dodag_
 
 static void _receive(gnrc_pktsnip_t *icmpv6)
 {
-    gnrc_pktsnip_t *ipv6 = NULL;
-    ipv6_hdr_t *ipv6_hdr = NULL;
-    icmpv6_hdr_t *icmpv6_hdr = NULL;
+    gnrc_pktsnip_t *ipv6, *netif;
+    ipv6_hdr_t *ipv6_hdr;
+    icmpv6_hdr_t *icmpv6_hdr;
+    kernel_pid_t iface = KERNEL_PID_UNDEF;
 
-    LL_SEARCH_SCALAR(icmpv6, ipv6, type, GNRC_NETTYPE_IPV6);
+    assert(icmpv6 != NULL);
+
+    ipv6 = gnrc_pktsnip_search_type(icmpv6, GNRC_NETTYPE_IPV6);
+    netif = gnrc_pktsnip_search_type(icmpv6, GNRC_NETTYPE_NETIF);
 
     assert(ipv6 != NULL);
+
+    if (netif) {
+        iface = ((gnrc_netif_hdr_t *)netif->data)->if_pid;
+    }
 
     ipv6_hdr = (ipv6_hdr_t *)ipv6->data;
 
@@ -129,23 +139,23 @@ static void _receive(gnrc_pktsnip_t *icmpv6)
     switch (icmpv6_hdr->code) {
         case GNRC_RPL_ICMPV6_CODE_DIS:
             DEBUG("RPL: DIS received\n");
-            gnrc_rpl_recv_DIS((gnrc_rpl_dis_t *)(icmpv6_hdr + 1), &ipv6_hdr->src, &ipv6_hdr->dst,
-                    byteorder_ntohs(ipv6_hdr->len));
+            gnrc_rpl_recv_DIS((gnrc_rpl_dis_t *)(icmpv6_hdr + 1), iface, &ipv6_hdr->src,
+                              &ipv6_hdr->dst, byteorder_ntohs(ipv6_hdr->len));
             break;
         case GNRC_RPL_ICMPV6_CODE_DIO:
             DEBUG("RPL: DIO received\n");
-            gnrc_rpl_recv_DIO((gnrc_rpl_dio_t *)(icmpv6_hdr + 1), &ipv6_hdr->src,
-                    byteorder_ntohs(ipv6_hdr->len));
+            gnrc_rpl_recv_DIO((gnrc_rpl_dio_t *)(icmpv6_hdr + 1), iface, &ipv6_hdr->src,
+                              byteorder_ntohs(ipv6_hdr->len));
             break;
         case GNRC_RPL_ICMPV6_CODE_DAO:
             DEBUG("RPL: DAO received\n");
-            gnrc_rpl_recv_DAO((gnrc_rpl_dao_t *)(icmpv6_hdr + 1), &ipv6_hdr->src,
-                    byteorder_ntohs(ipv6_hdr->len));
+            gnrc_rpl_recv_DAO((gnrc_rpl_dao_t *)(icmpv6_hdr + 1), iface, &ipv6_hdr->src,
+                              byteorder_ntohs(ipv6_hdr->len));
             break;
         case GNRC_RPL_ICMPV6_CODE_DAO_ACK:
             DEBUG("RPL: DAO-ACK received\n");
-            gnrc_rpl_recv_DAO_ACK((gnrc_rpl_dao_ack_t *)(icmpv6_hdr + 1),
-                    byteorder_ntohs(ipv6_hdr->len));
+            gnrc_rpl_recv_DAO_ACK((gnrc_rpl_dao_ack_t *)(icmpv6_hdr + 1), iface,
+                                  byteorder_ntohs(ipv6_hdr->len));
             break;
         default:
             DEBUG("RPL: Unknown ICMPV6 code received\n");

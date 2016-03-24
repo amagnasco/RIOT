@@ -63,13 +63,13 @@ int at86rf2xx_init(at86rf2xx_t *dev, spi_t spi, spi_speed_t spi_speed,
     /* initialise SPI */
     spi_init_master(dev->spi, SPI_CONF_FIRST_RISING, spi_speed);
     /* initialise GPIOs */
-    gpio_init(dev->cs_pin, GPIO_DIR_OUT, GPIO_NOPULL);
+    gpio_init(dev->cs_pin, GPIO_OUT);
     gpio_set(dev->cs_pin);
-    gpio_init(dev->sleep_pin, GPIO_DIR_OUT, GPIO_NOPULL);
+    gpio_init(dev->sleep_pin, GPIO_OUT);
     gpio_clear(dev->sleep_pin);
-    gpio_init(dev->reset_pin, GPIO_DIR_OUT, GPIO_NOPULL);
+    gpio_init(dev->reset_pin, GPIO_OUT);
     gpio_set(dev->reset_pin);
-    gpio_init_int(dev->int_pin, GPIO_NOPULL, GPIO_RISING, _irq_handler, dev);
+    gpio_init_int(dev->int_pin, GPIO_IN, GPIO_RISING, _irq_handler, dev);
 
     /* make sure device is not sleeping, so we can query part number */
     at86rf2xx_assert_awake(dev);
@@ -89,8 +89,8 @@ int at86rf2xx_init(at86rf2xx_t *dev, spi_t spi, spi_speed_t spi_speed,
 
 void at86rf2xx_reset(at86rf2xx_t *dev)
 {
-#if CPUID_ID_LEN
-    uint8_t cpuid[CPUID_ID_LEN];
+#if CPUID_LEN
+    uint8_t cpuid[CPUID_LEN];
     eui64_t addr_long;
 #endif
 
@@ -103,16 +103,16 @@ void at86rf2xx_reset(at86rf2xx_t *dev)
     dev->seq_nr = 0;
     dev->options = 0;
     /* set short and long address */
-#if CPUID_ID_LEN
+#if CPUID_LEN
     cpuid_get(cpuid);
 
-#if CPUID_ID_LEN < 8
-    /* in case CPUID_ID_LEN < 8, fill missing bytes with zeros */
-    for (int i = CPUID_ID_LEN; i < 8; i++) {
+#if CPUID_LEN < 8
+    /* in case CPUID_LEN < 8, fill missing bytes with zeros */
+    for (int i = CPUID_LEN; i < 8; i++) {
         cpuid[i] = 0;
     }
 #else
-    for (int i = 8; i < CPUID_ID_LEN; i++) {
+    for (int i = 8; i < CPUID_LEN; i++) {
         cpuid[i & 0x07] ^= cpuid[i];
     }
 #endif

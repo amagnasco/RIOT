@@ -142,8 +142,7 @@ int _gnrc_rpl_trickle_start(char *arg1)
 
 int _gnrc_rpl_send_dis(void)
 {
-    ipv6_addr_t all_RPL_nodes = GNRC_RPL_ALL_NODES_ADDR;
-    gnrc_rpl_send_DIS(NULL, &all_RPL_nodes);
+    gnrc_rpl_send_DIS(NULL, (ipv6_addr_t *) &ipv6_addr_all_rpl_nodes);
 
     puts("success: send a DIS\n");
     return 0;
@@ -186,11 +185,13 @@ int _gnrc_rpl_dodag_show(void)
         if (gnrc_rpl_instances[i].state == 0) {
             continue;
         }
-        printf("instance [%d | mop: %d | ocp: %d | mhri: %d | mri %d]\n", gnrc_rpl_instances[i].id,
-                gnrc_rpl_instances[i].mop, gnrc_rpl_instances[i].of->ocp,
-                gnrc_rpl_instances[i].min_hop_rank_inc, gnrc_rpl_instances[i].max_rank_inc);
 
         dodag = &gnrc_rpl_instances[i].dodag;
+
+        printf("instance [%d | Iface: %" PRIkernel_pid " | mop: %d | ocp: %d | mhri: %d | mri %d]\n",
+                gnrc_rpl_instances[i].id, dodag->iface,
+                gnrc_rpl_instances[i].mop, gnrc_rpl_instances[i].of->ocp,
+                gnrc_rpl_instances[i].min_hop_rank_inc, gnrc_rpl_instances[i].max_rank_inc);
 
         tc = (((uint64_t) dodag->trickle.msg_callback_timer.long_target << 32)
                 | dodag->trickle.msg_callback_timer.target) - xnow;
@@ -202,11 +203,12 @@ int _gnrc_rpl_dodag_show(void)
 
         cleanup = dodag->instance->cleanup < 0 ? 0 : dodag->instance->cleanup;
 
-        printf("\tdodag [%s | R: %d | OP: %s | CL: %" PRIi8 "s | "
+        printf("\tdodag [%s | R: %d | OP: %s | PIO: %s | CL: %ds | "
                "TR(I=[%d,%d], k=%d, c=%d, TC=%" PRIu32 "s, TI=%" PRIu32 "s)]\n",
                ipv6_addr_to_str(addr_str, &dodag->dodag_id, sizeof(addr_str)),
                dodag->my_rank, (dodag->node_status == GNRC_RPL_LEAF_NODE ? "Leaf" : "Router"),
-               cleanup, (1 << dodag->dio_min), dodag->dio_interval_doubl, dodag->trickle.k,
+               ((dodag->dio_opts & GNRC_RPL_REQ_DIO_OPT_PREFIX_INFO) ? "on" : "off"),
+               (int) cleanup, (1 << dodag->dio_min), dodag->dio_interval_doubl, dodag->trickle.k,
                dodag->trickle.c, (uint32_t) (tc & 0xFFFFFFFF), (uint32_t) (ti & 0xFFFFFFFF));
 
         gnrc_rpl_parent_t *parent;
@@ -240,6 +242,24 @@ int _gnrc_rpl_operation(bool leaf, char *arg1)
     printf("success: operate in instance (%d) as %s\n", instance_id, leaf ? "leaf" : "router");
     return 0;
 }
+
+#ifndef GNRC_RPL_WITHOUT_PIO
+int _gnrc_rpl_set_pio(char *inst_id, bool status)
+{
+    uint8_t instance_id = (uint8_t) atoi(inst_id);
+    gnrc_rpl_instance_t *inst;
+
+    if ((inst = gnrc_rpl_instance_get(instance_id)) == NULL) {
+        printf("error: could not find the instance (%d)\n", instance_id);
+        return 1;
+    }
+
+    gnrc_rpl_config_pio(&inst->dodag, status);
+
+    printf("success: %sactivated PIO transmissions\n", status ? "" : "de");
+    return 0;
+}
+#endif
 
 int _gnrc_rpl(int argc, char **argv)
 {
@@ -283,18 +303,35 @@ int _gnrc_rpl(int argc, char **argv)
             return _gnrc_rpl_operation(false, argv[2]);
         }
     }
+    else if (strcmp(argv[1], "set") == 0) {
+        if (argc > 2) {
+#ifndef GNRC_RPL_WITHOUT_PIO
+            if (strcmp(argv[2], "pio") == 0) {
+                if ((argc == 5) && (strcmp(argv[3], "on") == 0)) {
+                    return _gnrc_rpl_set_pio(argv[4], true);
+                }
+                else if ((argc == 5) && (strcmp(argv[3], "off") == 0)) {
+                    return _gnrc_rpl_set_pio(argv[4], false);
+                }
+            }
+#endif
+        }
+    }
 
-    puts("* help\t\t\t\t- show usage");
-    puts("* init <if_id>\t\t\t- initialize RPL on the given interface");
-    puts("* leaf <instance_id>\t\t- operate as leaf in the instance");
-    puts("* trickle reset <instance_id>\t- reset the trickle timer");
-    puts("* trickle start <instance_id>\t- start the trickle timer");
-    puts("* trickle stop <instance_id>\t- stop the trickle timer");
-    puts("* rm <instance_id>\t\t- delete the given instance and related dodag");
-    puts("* root <inst_id> <dodag_id>\t- add a dodag to a new or existing instance");
-    puts("* router <instance_id>\t\t- operate as router in the instance");
-    puts("* send dis\t\t\t- send a multicast DIS");
-    puts("* show\t\t\t\t- show instance and dodag tables");
+    puts("* help\t\t\t\t\t- show usage");
+    puts("* init <if_id>\t\t\t\t- initialize RPL on the given interface");
+    puts("* leaf <instance_id>\t\t\t- operate as leaf in the instance");
+    puts("* trickle reset <instance_id>\t\t- reset the trickle timer");
+    puts("* trickle start <instance_id>\t\t- start the trickle timer");
+    puts("* trickle stop <instance_id>\t\t- stop the trickle timer");
+    puts("* rm <instance_id>\t\t\t- delete the given instance and related dodag");
+    puts("* root <inst_id> <dodag_id>\t\t- add a dodag to a new or existing instance");
+    puts("* router <instance_id>\t\t\t- operate as router in the instance");
+    puts("* send dis\t\t\t\t- send a multicast DIS");
+#ifndef GNRC_RPL_WITHOUT_PIO
+    puts("* set pio <on/off> <instance_id>\t- (de-)activate PIO transmissions in DIOs");
+#endif
+    puts("* show\t\t\t\t\t- show instance and dodag tables");
     return 0;
 }
 /**

@@ -55,9 +55,6 @@ endif
 ifneq (,$(filter gnrc_netapi,$(USEMODULE)))
     DIRS += netapi
 endif
-ifneq (,$(filter gnrc_netdev_eth,$(USEMODULE)))
-    DIRS += link_layer/netdev_eth
-endif
 ifneq (,$(filter gnrc_netif,$(USEMODULE)))
     DIRS += netif
 endif
@@ -72,6 +69,9 @@ ifneq (,$(filter gnrc_nettest,$(USEMODULE)))
 endif
 ifneq (,$(filter gnrc_nomac,$(USEMODULE)))
     DIRS += link_layer/nomac
+endif
+ifneq (,$(filter gnrc_pkt,$(USEMODULE)))
+    DIRS += pkt
 endif
 ifneq (,$(filter gnrc_pktbuf_static,$(USEMODULE)))
     DIRS += pktbuf_static

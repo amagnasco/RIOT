@@ -62,7 +62,7 @@ extern "C" {
 /* Timer 0 configuration */
 #define TIMER_0_DEV         TIM2
 #define TIMER_0_CHANNELS    4
-#define TIMER_0_PRESCALER   (83U)
+#define TIMER_0_FREQ        (CLOCK_CORECLOCK / 2)
 #define TIMER_0_MAX_VALUE   (0xffffffff)
 #define TIMER_0_CLKEN()     (RCC->APB1ENR |= RCC_APB1ENR_TIM2EN)
 #define TIMER_0_ISR         isr_tim2
@@ -71,7 +71,7 @@ extern "C" {
 /* Timer 1 configuration */
 #define TIMER_1_DEV         TIM5
 #define TIMER_1_CHANNELS    4
-#define TIMER_1_PRESCALER   (83U)
+#define TIMER_1_FREQ        (CLOCK_CORECLOCK / 2)
 #define TIMER_1_MAX_VALUE   (0xffffffff)
 #define TIMER_1_CLKEN()     (RCC->APB1ENR |= RCC_APB1ENR_TIM5EN)
 #define TIMER_1_ISR         isr_tim5
@@ -83,16 +83,16 @@ extern "C" {
  * @{
  */
 static const uart_conf_t uart_config[] = {
-    /* device, RCC mask, RX pin, TX pin, pin AF, IRQ channel, DMA stream, DMA  */
     {
-        USART6,                     /* device base register */
-        RCC_APB2ENR_USART6EN,       /* RCC mask */
-        GPIO_PIN(PORT_C,7),         /* RX pin */
-        GPIO_PIN(PORT_C,6),         /* TX pin */
-        GPIO_AF8,                   /* pin AF */
-        USART6_IRQn,                /* IRQ channel */
-        14,                         /* DMA stream */
-        5                           /* DMA channel */
+        .dev        = USART6,
+        .rcc_mask   = RCC_APB2ENR_USART6EN,
+        .rx_pin     = GPIO_PIN(PORT_C,7),
+        .tx_pin     = GPIO_PIN(PORT_C,6),
+        .af         = GPIO_AF8,
+        .bus        = APB2,
+        .irqn       = USART6_IRQn,
+        .dma_stream = 14,
+        .dma_chan   = 5
     },
 };
 
@@ -102,6 +102,20 @@ static const uart_conf_t uart_config[] = {
 
 /* deduct number of defined UART interfaces */
 #define UART_NUMOF          (sizeof(uart_config) / sizeof(uart_config[0]))
+/** @} */
+
+/**
+ * @brief   ADC configuration
+ * @{
+ */
+#define ADC_NUMOF           (0)
+/** @} */
+
+/**
+ * @brief   DAC configuration
+ * @{
+ */
+#define DAC_NUMOF           (0)
 /** @} */
 
 #ifdef __cplusplus

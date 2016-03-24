@@ -21,6 +21,7 @@
 #ifndef __CPU_CONF_H
 #define __CPU_CONF_H
 
+#include "cpu_conf_common.h"
 #include "sam3x8e.h"
 
 #ifdef __cplusplus
@@ -35,11 +36,6 @@ extern "C" {
 #define CPU_IRQ_NUMOF                   (45U)
 #define CPU_FLASH_BASE                  IFLASH0_ADDR
 /** @} */
-
-/**
- * @brief CPUID_ID_LEN length of cpuid in bytes
- */
-#define CPUID_ID_LEN (16) /* 128 bits long, 16 bytes long */
 
 #ifdef __cplusplus
 }

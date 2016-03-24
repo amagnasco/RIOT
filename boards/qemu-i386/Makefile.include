@@ -1,7 +1,6 @@
-include $(RIOTBOARD)/x86-multiboot-common/Makefile.include
+USEMODULE += x86-multiboot-common
 
 CFLAGS += -march=i686 -mtune=i686
-CFLAGS += -I$(RIOTBOARD)/qemu-i386/include
 
 TERMPROG = exec $(RIOTBOARD)/qemu-i386/dist/term.py qemu-system-i386 $(BINDIRBASE) $(HEXFILE)
 
@@ -24,3 +23,5 @@ debug-gdb: debug
 DEBUGGER_FLAGS = "x-terminal-emulator -e gdb -ex 'target remote :1234' --args $(ELFFILE)"
 
 debug:
+
+include $(RIOTBOARD)/x86-multiboot-common/Makefile.include

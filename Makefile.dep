@@ -3,12 +3,17 @@ include $(RIOTBASE)/drivers/Makefile.dep
 
 ifneq (,$(filter libcoap,$(USEPKG)))
     USEMODULE += posix_sockets
+    USEMODULE += gnrc_conn_udp
 endif
 
 ifneq (,$(filter nhdp,$(USEMODULE)))
   USEMODULE += conn_udp
-  USEMODULE += vtimer
+  USEMODULE += xtimer
   USEMODULE += oonf_rfc5444
+endif
+
+ifneq (,$(filter netdev2_ieee802154,$(USEMODULE)))
+  USEMODULE += ieee802154
 endif
 
 ifneq (,$(filter gnrc_%,$(filter-out gnrc_netapi gnrc_netreg gnrc_netif% gnrc_pktbuf,$(USEMODULE))))
@@ -30,6 +35,9 @@ endif
 ifneq (,$(filter netdev2_tap,$(USEMODULE)))
   USEMODULE += netif
   USEMODULE += netdev2_eth
+  ifneq (,$(filter gnrc_%,$(USEMODULE)))
+    USEMODULE += gnrc_netdev2
+  endif
 endif
 
 ifneq (,$(filter gnrc_zep,$(USEMODULE)))
@@ -282,7 +290,16 @@ ifneq (,$(filter gnrc_pktdump,$(USEMODULE)))
   USEMODULE += od
 endif
 
+ifneq (,$(filter newlib_nano,$(USEMODULE)))
+  USEMODULE += newlib
+endif
+
 ifneq (,$(filter newlib,$(USEMODULE)))
+  # allow custom newlib syscalls implementations by adding
+  # newlib_syscalls_XXX to USEMODULE
+  ifeq (,$(filter newlib_syscalls_%,$(USEMODULE)))
+    USEMODULE += newlib_syscalls_default
+  endif
   USEMODULE += uart_stdio
 endif
 
@@ -358,10 +375,6 @@ ifneq (,$(filter cpp11-compat,$(USEMODULE)))
   FEATURES_REQUIRED += cpp
 endif
 
-ifneq (,$(filter gnrc_netdev_eth,$(USEMODULE)))
-  USEMODULE += gnrc_pktbuf
-endif
-
 ifneq (,$(filter gnrc,$(USEMODULE)))
   USEMODULE += gnrc_netapi
   USEMODULE += gnrc_netreg
@@ -374,6 +387,7 @@ ifneq (,$(filter gnrc_pktbuf, $(USEMODULE)))
   ifeq (,$(filter gnrc_pktbuf_%, $(USEMODULE)))
     USEMODULE += gnrc_pktbuf_static
   endif
+  USEMODULE += gnrc_pkt
 endif
 
 ifneq (,$(filter gnrc_pktbuf_%, $(USEMODULE)))
@@ -418,4 +432,19 @@ endif
 
 ifneq (,$(filter phydat,$(USEMODULE)))
   USEMODULE += fmt
+endif
+
+ifneq (,$(filter ethos,$(USEMODULE)))
+    USEMODULE += netdev2_eth
+endif
+
+ifneq (,$(filter random,$(USEMODULE)))
+    # select default prng
+    ifeq (,$(filter prng_%,$(USEMODULE)))
+        USEMODULE += prng_tinymt32
+    endif
+
+    ifneq (,$(filter prng_tinymt32,$(USEMODULE)))
+        USEMODULE += tinymt32
+    endif
 endif

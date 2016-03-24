@@ -4,7 +4,7 @@ export CPU_MODEL = msp430f2617
 
 # set default port depending on operating system
 PORT_LINUX ?= /dev/ttyUSB0
-PORT_DARWIN ?= $(shell ls -1 /dev/tty.SLAB_USBtoUART* | head -n 1)
+PORT_DARWIN ?= $(firstword $(sort $(wildcard /dev/tty.SLAB_USBtoUART*)))
 # setup serial terminal
 include $(RIOTBOARD)/Makefile.include.serial
 
@@ -12,6 +12,3 @@ include $(RIOTBOARD)/Makefile.include.serial
 export OFLAGS = -O ihex
 export FLASHER = $(RIOTBASE)/dist/tools/goodfet/goodfet.bsl
 export FFLAGS = --z1 -I -c $(PORT) -r -e -p $(HEXFILE)
-
-# include the msp430 common Makefile
-include $(RIOTBOARD)/Makefile.include.msp430_common
